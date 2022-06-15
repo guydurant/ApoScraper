@@ -14,4 +14,4 @@ Note: Needs refinement for how related proteins are chosen. Needs to be changed 
 
 ``` python apo_scraper {PDB_ID} ```
 
-- PDB_ID = any 4 letter PDB_ID code
+- PDB_ID = any 4 letter PDB ID code
