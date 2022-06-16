@@ -1,1 +1,3 @@
 aposcraper/
+__pycache__/
+.vscode/
