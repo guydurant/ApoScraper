@@ -12,6 +12,7 @@ Note: Needs refinement for how related proteins are chosen. Needs to be changed 
  
 ## Running the apo_scraper.py script
 
-``` python apo_scraper {PDB_ID} ```
+``` python apo_scraper {PDB_ID} {SEQ}```
 
 - PDB_ID = any 4 letter PDB ID code
+- SEQ = sequence threshold. Between 1 and 0.
