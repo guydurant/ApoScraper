@@ -1,3 +1,7 @@
+from pypdb.clients.search.operators.sequence_operators import SequenceOperator
+from pypdb.clients.search.search_client import ReturnType
+from pypdb.clients.search.search_client import perform_search
+from pypdb.clients.fasta.fasta_client import get_fasta_from_rcsb_entry
 from pypdb import get_info, get_pdb_file
 from non_ligand_chemicals import NON_LIGAND_HETATMS
 import warnings
@@ -78,28 +82,70 @@ def append_value(dict_obj, key, value):
         dict_obj[key] = value
 
 
-def check_related_pdb_ids_apo(pdb_id):
+def check_related_pdb_ids_apo(pdb_id, seq):
     """Obtains all related proteins for a given PDB and checks if they are apo
 
     Args:
         pdb_id (str): 4 letter ID for structure
+        seq (float): Sequence similarity to search similar structures by.
+        Between 0 and 1.
 
     Returns:
         (dict): Dictionary, for the ID checked as key, with "apo" structures
         as values
     """
     apo_dict = {}
-    all_info = get_all_pdb_info(pdb_id)
-    if not all_info:
-        # RAISE ERROR
-        pass
-    else:
-        for i in range(len(all_info['pdbx_database_related'])):
-            new_pdb = all_info['pdbx_database_related'][i]['db_id']
-            is_apo = check_if_apo(new_pdb)
-            if is_apo:
-                append_value(apo_dict, pdb_id, new_pdb)
+    similar_pdbs = sequence_similarity_search_for_pdb_id(pdb_id, seq)
+    for pdb in similar_pdbs:
+        try:
+            is_apo = check_if_apo(pdb)
+        except AttributeError:
+            print(f'{pdb} check failed')
+        if is_apo:
+            append_value(apo_dict, pdb_id, pdb)
     return apo_dict
+
+
+def sequence_similarity_search_for_pdb_id(pdb_id, seq):
+    """Performs a sequence similairty search for a given PDB structure and a
+    given threshold
+
+    Args:
+        pdb_id (str): 4 letter ID for structure
+        seq (float): Sequence similarity to search similar structures by.
+        Between 0 and 1.
+
+    Returns:
+        list: All similiar PDBS to given PDB ID
+    """
+    # Fetches the first sequence in the PDB ID fasta file
+    fasta_sequence = get_fasta_from_rcsb_entry(pdb_id)[0].sequence
+
+    # Performs sequence search ('BLAST'-like) using the FASTA sequence
+    results = perform_search(
+        return_type=ReturnType.ENTRY,
+        search_operator=SequenceOperator(
+            sequence=fasta_sequence,
+            identity_cutoff=seq,
+            evalue_cutoff=1000
+        ),
+        return_with_scores=True
+    )
+    return process_sequence_similarity_search_results(results)
+
+
+def process_sequence_similarity_search_results(results):
+    """Converts the results of the sequence search into a list of PDB ids
+
+    Args:
+        results (list): List of ScoredResult classes
+
+    Returns:
+        list: List of PDB ids
+    """
+    if len(results) > 0:
+        pdb_ids = [i.entity_id for i in results]
+    return pdb_ids
 
 
 if __name__ == "__main__":
@@ -107,5 +153,8 @@ if __name__ == "__main__":
     parser.add_argument('pdb_id', type=str,
                         help='ID of PDB structure from RCSB PDB that you want'
                              'to find apo structures of')
+    parser.add_argument('seq', type=float,
+                        help='Sequence similarity threshold to search apo'
+                             'structures for. Value must be between 0 and 1.')
     args = parser.parse_args()
-    print(check_related_pdb_ids_apo(args.pdb_id))
+    print(check_related_pdb_ids_apo(args.pdb_id, args.seq))
